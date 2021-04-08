@@ -90,3 +90,14 @@ if [ "$INPUT_COMMAND" = "test" -a "$INPUT_SARIF" = "true" ]; then
 fi
 
 exec $@ $JSON_OUTPUT $SARIF_OUTPUT
+
+if [ "${INPUT_UPLOADSARIF}" = "true" ]; then
+    if [ -f "snyk.sarif" ]; then
+        curl \
+        -X POST \
+        -H "Accept: application/vnd.github.v3+json" \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        https://api.github.com/repos/octocat/hello-world/code-scanning/sarifs \
+        -d "{\"commit_sha\":\"${GITHUB_SHA}\",\"ref\":\"${GITHUB_REF}\",\"sarif\":\"$(gzip -c snyk.sarif | base64)\"}"
+    fi
+fi
