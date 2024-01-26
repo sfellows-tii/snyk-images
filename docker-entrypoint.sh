@@ -9,10 +9,21 @@
 if ! [ -z "${COMMAND}" ]; then
     eval ${COMMAND}
 else
+    maxdepth='1'
     if [ -n "$(echo $* | sed -n '/--all-projects/p')" ]; then
         maxdepth='4'
-    else
-        maxdepth='1'
+    fi
+    subdir=''
+    subdirs=$(find . -maxdepth 1 -type d -not -name '.*')
+    if [ -n $subdirs]
+    then
+        printf "Found subdirectories: ${subdirs}\n"
+        for sd in $subdirs; do
+            if [ -n "$(echo $* | sed -n 's@'${sd}'@'${sd}'@p')" ]; then
+                printf "Subdirectory specified in command/args: ${sd}...\n"
+                subdir="${sd}"
+            fi
+        done
     fi
 
     # Python
@@ -23,8 +34,13 @@ else
     if [ -x "$(command -v pip)" ]; then
         printf 'Found python pip...\n'
         out=$(pip install --upgrade pip 2>&1 || true) # Skipping the dependencies which aren't Installable
-        printf "Running find . -maxdepth ${maxdepth} -name 'requirements.txt'\n"
-        reqs=$(find . -maxdepth "${maxdepth}" -name 'requirements.txt')
+        if [ -n $subdir ]; then
+            printf "Running find ${subdir} -name 'requirements.txt'\n"
+            reqs=$(find ${subdir} -name 'requirements.txt')
+        else
+            printf "Running find . -maxdepth ${maxdepth} -name 'requirements.txt'\n"
+            reqs=$(find . -maxdepth "${maxdepth}" -name 'requirements.txt')
+        fi
         if [ -n "$reqs" ]; then
             printf 'Found 1 or more requirements.txt...\n'
             for req in $reqs; do
