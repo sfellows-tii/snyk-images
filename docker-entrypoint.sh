@@ -9,16 +9,33 @@
 if ! [ -z "${COMMAND}" ]; then
     eval ${COMMAND}
 else
+    if [ -n "$(echo $* | sed -n '/--all-projects/p')" ]; then
+        maxdepth='4'
+    else
+        maxdepth='1'
+    fi
 
     # Python
     # Snyk requires Python to have downloaded the dependencies before running
     # If pip is present on the path, and we find a requirements.txt file, run pip install -r requirements.txt
     # If pipenv is present on the path, and we find a Pipfile without a Pipfile.lock, run pipenv update
+    printf 'Testing for python...\n'
     if [ -x "$(command -v pip)" ]; then
-        if [ -f "requirements.txt" ]; then
-            out=$(cat requirements.txt | sed -e '/^\s*#.*$/d' -e '/^\s*$/d' | xargs -n 1 pip install 2>&1 || true) # Skipping the dependencies which aren't Installable
+        printf 'Found python pip...\n'
+        out=$(pip install --upgrade pip 2>&1 || true) # Skipping the dependencies which aren't Installable
+        printf "Running find . -maxdepth ${maxdepth} -name 'requirements.txt'\n"
+        reqs=$(find . -maxdepth "${maxdepth}" -name 'requirements.txt')
+        if [ -n "$reqs" ]; then
+            printf 'Found 1 or more requirements.txt...\n'
+            for req in $reqs; do
+                printf "Installing ${req}...\n"
+                out=$(pip install -r $req 2>&1 || true) # Skipping the dependencies which aren't Installable
+                printf '%s\n' "$out"
+            done
+            # out=$(cat **/requirements.txt | sed -e '/^\s*#.*$/d' -e '/^\s*$/d' | xargs -n 1 pip install 2>&1 || true) # Skipping the dependencies which aren't Installable
         fi
-        if [ -f "Pipfile" ]; then
+        if [ -n "$(find . -name 'Pipfile')" ]; then
+            printf 'Found Pipfile...\n'
             if ! [ -x "$(command -v pipenv)" ]; then
                 pip install pipenv > /dev/null 2>&1
             fi
@@ -29,6 +46,7 @@ else
             fi
         fi
         if [ -f "pyproject.toml" ] && ! [ -f "poetry.lock" ]; then
+            printf 'Found pyproject.toml...\n'
             if ! [ -x "$(command -v poetry)" ]; then
                 pip install poetry > /dev/null 2>&1
             fi
@@ -39,8 +57,11 @@ else
     # Maven
     # Snyk requires Maven to have downloaded the dependencies before running
     # If mvn is present on the path, and we find a pom.xml, run mvn install
+    printf 'Testing for maven...\n'
     if [ -x "$(command -v mvn)" ]; then
+        printf 'Found maven...\n'
         if [ -f "pom.xml" ]; then
+            printf 'Found pom.xml...\n'
             out=$(mvn install --no-transfer-progress -DskipTests)
         fi
     fi
@@ -48,8 +69,11 @@ else
     # Go dep
     # Snyk requires dep to be installed
     # If Go is installed and if we find a Gopkg.toml file, ensure dep is installed and then install dependencies
+    printf 'Testing for go...\n'
     if [ -x "$(command -v go)" ]; then
+        printf 'Found go...\n'
         if [ -f "Gopkg.toml" ]; then
+            printf 'Found Gopkg.toml...\n'
             if ! [ -x "$(command -v dep)" ]; then
                 curl -s https://raw.githubusercontent.com/golang/dep/master/install.sh | sh > /dev/null 2>&1
             fi

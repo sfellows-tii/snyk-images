@@ -4,7 +4,8 @@ PREFIX = "snyk/snyk"
 
 default: build
 
-build: sort build-linux build-alpine
+#build: sort build-linux build-alpine
+build: sort build-python
 
 check-buildkit:
 ifndef DOCKER_BUILDKIT
@@ -12,6 +13,12 @@ ifndef DOCKER_BUILDKIT
 endif
 
 build-linux: check-buildkit
+	@awk '{ print "docker build --build-arg IMAGE="$$1" --build-arg TAG="$$NF" -t "$(PREFIX)":"$$NF" ." | "/bin/sh"}' $(NAME)
+
+build-python: check-buildkit
+	@awk '{ print "docker build --build-arg IMAGE="$$1" --build-arg TAG="$$NF" -t "$(PREFIX)":"$$NF" ." | "/bin/sh"}' $(NAME)
+
+build-python-3.11: check-buildkit
 	@awk '{ print "docker build --build-arg IMAGE="$$1" --build-arg TAG="$$NF" -t "$(PREFIX)":"$$NF" ." | "/bin/sh"}' $(NAME)
 
 build-alpine: check-buildkit
@@ -35,4 +42,4 @@ markdown: sort
 push:
 	@cat linux alpine | sort | awk '{ print "docker push "$(PREFIX)":"$$NF"" | "/bin/bash"}'
 
-.PHONY: default build build-linux build-alpine build-alpine-push check-buildkit sort sort-% test test-% markdown push
+.PHONY: default build build-linux build-python build-alpine build-alpine-push check-buildkit sort sort-% test test-% markdown push
